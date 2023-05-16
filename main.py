@@ -1,22 +1,21 @@
-from cgpy import Image
+from cgpy import Image, Polygon, Color
 
 HEIGHT = 500
 WIDTH = 500
-red = (255, 0, 0)
-green = (0, 255, 0)
-blue = (0, 0, 255)
+red = Color((255, 0, 0))
+green = Color((0, 255, 0))
+blue = Color((0, 0, 255))
 
 
 def main():
     img = Image(width=WIDTH, height=HEIGHT)
 
-    img.ellipse(250, 250, -100, 100, blue)
+    pol1 = Polygon(points=[(10, 200), (200, 50), (100, 50), (50, 10)])
 
-    img.circumference(250, 250, 50, green)
-    img.circumference(300, 280, 20, blue)
+    img.draw_polygon(polygon=pol1, color=green)
+    img.border_fill(51, 51, green)
 
-    img.flood_fill(250, 250, red)
-    img.border_fill(250, 250, color=blue)
+    # img.line_DDAAA(400, 100, 300, 500, red)
 
     img.run()
 

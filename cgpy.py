@@ -1,9 +1,32 @@
 import pygame
 from pygame import gfxdraw
-from math import sin
+from math import sin, ceil, floor
 
 
-ColorType = tuple[int, int, int]
+class Color:
+    def __init__(self, values: tuple[int]) -> None:
+        self.r = values[0]
+        self.g = values[1]
+        self.b = values[2]
+        self.a = values[3] if len(values) == 4 else 255
+    
+    def __eq__(self, color):
+        return self.r == color.r and self.g == color.g and self.b == color.b
+
+    def get_color(self):
+        return (self.r, self.g, self.b, self.a)
+    
+
+class Polygon:
+    
+    def __init__( self, points: list[tuple[int, int]] = []) -> None:
+        self.points = points
+
+    def insert_points(self, points: list[tuple[int, int]]) -> None:
+        self.points += points
+
+    def update_point(self, pos: int, point: tuple[int, int]) -> None:
+        self.points[pos] = point
 
 
 class Image:
@@ -23,11 +46,11 @@ class Image:
                     pygame.quit()
             pygame.display.update()
 
-    def set_pixel(self, x: int, y: int, color: ColorType) -> None:
-        x = round(min(max(x, 0), self.width))
-        y = round(min(max(y, 0), self.height))
+    def set_pixel(self, x: int, y: int, color: Color) -> None:
+        x = ceil(min(max(x, 0), self.width))
+        y = ceil(min(max(y, 0), self.height))
 
-        gfxdraw.pixel(self.surface, x, y, color)
+        gfxdraw.pixel(self.surface, x, y, color.get_color())
 
     def get_pixel(self, x: int, y: int):
         color = self.surface.get_at((x, y))
@@ -40,7 +63,7 @@ class Image:
 
             self.set_pixel(x, y, (255, 0, 0))
 
-    def line(self, xi: int, yi: int, xf: int, yf: int, color: ColorType) -> None:
+    def line(self, xi: int, yi: int, xf: int, yf: int, color: Color) -> None:
         dx = xf - xi
         dy = yf - yi
 
@@ -72,7 +95,7 @@ class Image:
             else:
                 self.set_pixel(y, x, color)
 
-    def line_DDA(self, xi: int, yi: int, xf: int, yf: int, color: ColorType) -> None:
+    def line_DDA(self, xi: int, yi: int, xf: int, yf: int, color: Color) -> None:
         dx = xf - xi
         dy = yf - yi
 
@@ -91,8 +114,42 @@ class Image:
 
             self.set_pixel(x, y, color)
 
+    def line_DDAAA(self, xi: int, yi: int, xf: int, yf: int, color: Color) -> None:
+        dx = xf - xi
+        dy = yf - yi
+
+        steps = max(abs(dx), abs(dy))
+
+        if steps == 0:
+            self.set_pixel(xi, yi, color)
+            return
+
+        step_x = dx / steps
+        step_y = dy / steps
+
+        for i in range(steps):
+            x = xi + i * step_x
+            y = yi + i * step_y
+
+            if abs(ceil(step_x)) == 1:
+                yd = y - floor(y)
+                
+                color.a = ceil((1 - yd) * 255)
+                self.set_pixel(ceil(x), floor(y), color)
+
+                color.a = ceil(yd * 255)
+                self.set_pixel(ceil(x), floor(y+1), color)
+            else:
+                xd = x - floor(x)
+
+                color.a = ceil((1 - xd) * 255)
+                self.set_pixel(floor(x), ceil(y), color)
+                
+                color.a = ceil(xd * 255)
+                self.set_pixel(floor(x + 1), ceil(y), color)
+
     def line_bresenham(
-        self, xi: int, yi: int, xf: int, yf: int, color: ColorType
+        self, xi: int, yi: int, xf: int, yf: int, color: Color
     ) -> None:
         dx = xf - xi
         dy = yf - yi
@@ -124,7 +181,7 @@ class Image:
 
             p += dy2
 
-    def circumference(self, xc: int, yc: int, r: int, color: ColorType) -> None:
+    def circumference(self, xc: int, yc: int, r: int, color: Color) -> None:
         x = 0
         y = r
 
@@ -147,7 +204,7 @@ class Image:
             else:
                 p += 4 * x + 6
 
-    def ellipse(self, xc: int, yc: int, rx: int, ry: int, color: ColorType) -> None:
+    def ellipse(self, xc: int, yc: int, rx: int, ry: int, color: Color) -> None:
         x = 0
         y = abs(ry)
 
@@ -201,15 +258,18 @@ class Image:
                 px += 2 * ry_squared
                 p += rx_squared - py + px
 
-    def flood_fill(self, x: int, y: int, color: ColorType) -> None:
-        initial_color = self.get_pixel(x, y)
+    def flood_fill(self, x: int, y: int, color: Color) -> None:
+        initial_color = Color(self.get_pixel(x, y))
+
+        if color == initial_color:
+            return
 
         stack = [(x, y)]
 
         while stack:
             x, y = stack.pop()
 
-            if self.get_pixel(x, y) != initial_color:
+            if Color(self.get_pixel(x, y)) != initial_color:
                 continue
 
             self.set_pixel(x, y, color)
@@ -227,7 +287,7 @@ class Image:
                 stack.append((x, y - 1))
 
     def border_fill(
-        self, x: int, y: int, color: ColorType, border_color: ColorType = None
+        self, x: int, y: int, color: Color, border_color: Color = None
     ) -> None:
         stack = [(x, y)]
 
@@ -236,8 +296,8 @@ class Image:
 
         while stack:
             x, y = stack.pop()
-
-            if self.get_pixel(x, y) in [border_color, color]:
+            
+            if Color(self.get_pixel(x, y)) in [border_color, color]:
                 continue
 
             self.set_pixel(x, y, color)
@@ -254,4 +314,13 @@ class Image:
             if y >= 1:
                 stack.append((x, y - 1))
 
-            print(".")
+    def draw_polygon(self, polygon: Polygon, color: Color) -> None:
+        xi, yi = polygon.points[0]
+
+        for i in range(1, len(polygon.points)):
+            xf, yf = polygon.points[i]
+            self.line_DDAAA(xi, yi, xf, yf, color)
+            xi, yi = xf, yf
+
+        xf, yf = polygon.points[0]
+        self.line_DDAAA(xi, yi, xf, yf, color)
