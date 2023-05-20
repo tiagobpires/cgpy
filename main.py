@@ -10,12 +10,14 @@ blue = Color((0, 0, 255))
 def main():
     img = Image(width=WIDTH, height=HEIGHT)
 
-    pol1 = Polygon(points=[(10, 200), (200, 50), (100, 50), (50, 10)])
+    pol1 = Polygon(points=[(100, 300), (200, 10), (300, 300)])
 
     img.draw_polygon(polygon=pol1, color=green)
-    img.border_fill(51, 51, green)
 
-    # img.line_DDAAA(400, 100, 300, 500, red)
+    img.scanline(polygon=pol1, color=green)
+    pol1 = Polygon(points=[(100, 300), (200, 10), (300, 300)])
+
+    img.draw_polygon(polygon=pol1, color=red)
 
     img.run()
 

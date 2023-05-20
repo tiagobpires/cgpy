@@ -9,17 +9,25 @@ class Color:
         self.g = values[1]
         self.b = values[2]
         self.a = values[3] if len(values) == 4 else 255
-    
-    def __eq__(self, color):
-        return self.r == color.r and self.g == color.g and self.b == color.b
 
     def get_color(self):
         return (self.r, self.g, self.b, self.a)
-    
+
+    def with_alpha(self, a) -> "Color":
+        return Color((self.r, self.g, self.b, a))
+
+    def __eq__(self, color):
+        return self.r == color.r and self.g == color.g and self.b == color.b
+
+    def __ne__(self, color):
+        return not (self.r == color.r and self.g == color.g and self.b == color.b)
+
+    def __repr__(self) -> str:
+        return f"({self.r}, {self.g}, {self.b}, {self.a})"
+
 
 class Polygon:
-    
-    def __init__( self, points: list[tuple[int, int]] = []) -> None:
+    def __init__(self, points: list[tuple[int, int]] = []) -> None:
         self.points = points
 
     def insert_points(self, points: list[tuple[int, int]]) -> None:
@@ -27,6 +35,12 @@ class Polygon:
 
     def update_point(self, pos: int, point: tuple[int, int]) -> None:
         self.points[pos] = point
+
+    def y_min(self) -> int:
+        return min(row[1] for row in self.points)
+
+    def y_max(self) -> int:
+        return max(row[1] for row in self.points)
 
 
 class Image:
@@ -47,8 +61,8 @@ class Image:
             pygame.display.update()
 
     def set_pixel(self, x: int, y: int, color: Color) -> None:
-        x = ceil(min(max(x, 0), self.width))
-        y = ceil(min(max(y, 0), self.height))
+        x = int(min(max(x, 0), self.width))
+        y = int(min(max(y, 0), self.height))
 
         gfxdraw.pixel(self.surface, x, y, color.get_color())
 
@@ -133,24 +147,22 @@ class Image:
 
             if abs(ceil(step_x)) == 1:
                 yd = y - floor(y)
-                
-                color.a = ceil((1 - yd) * 255)
-                self.set_pixel(ceil(x), floor(y), color)
 
-                color.a = ceil(yd * 255)
-                self.set_pixel(ceil(x), floor(y+1), color)
+                a = ceil((1 - yd) * 255)
+                self.set_pixel(ceil(x), floor(y), color.with_alpha(a))
+
+                a = ceil(yd * 255)
+                self.set_pixel(ceil(x), floor(y + 1), color.with_alpha(a))
             else:
                 xd = x - floor(x)
 
-                color.a = ceil((1 - xd) * 255)
-                self.set_pixel(floor(x), ceil(y), color)
-                
-                color.a = ceil(xd * 255)
-                self.set_pixel(floor(x + 1), ceil(y), color)
+                a = ceil((1 - xd) * 255)
+                self.set_pixel(floor(x), ceil(y), color.with_alpha(a))
 
-    def line_bresenham(
-        self, xi: int, yi: int, xf: int, yf: int, color: Color
-    ) -> None:
+                a = ceil(xd * 255)
+                self.set_pixel(floor(x + 1), ceil(y), color.with_alpha(a))
+
+    def line_bresenham(self, xi: int, yi: int, xf: int, yf: int, color: Color) -> None:
         dx = xf - xi
         dy = yf - yi
 
@@ -286,7 +298,7 @@ class Image:
             if y >= 1:
                 stack.append((x, y - 1))
 
-    def border_fill(
+    def boundary_fill(
         self, x: int, y: int, color: Color, border_color: Color = None
     ) -> None:
         stack = [(x, y)]
@@ -296,8 +308,10 @@ class Image:
 
         while stack:
             x, y = stack.pop()
-            
-            if Color(self.get_pixel(x, y)) in [border_color, color]:
+
+            color_aux = Color(self.get_pixel(x, y))
+
+            if color_aux in [border_color, color]:
                 continue
 
             self.set_pixel(x, y, color)
@@ -319,8 +333,62 @@ class Image:
 
         for i in range(1, len(polygon.points)):
             xf, yf = polygon.points[i]
-            self.line_DDAAA(xi, yi, xf, yf, color)
+            self.line_DDA(xi, yi, xf, yf, color)
             xi, yi = xf, yf
 
         xf, yf = polygon.points[0]
-        self.line_DDAAA(xi, yi, xf, yf, color)
+        self.line_DDA(xi, yi, xf, yf, color)
+
+    def intersection(self, y: int, segment: list[list[int]]) -> int:
+        xi = segment[0][0]
+        yi = segment[0][1]
+        xf = segment[1][0]
+        yf = segment[1][1]
+
+        # Horizontal segment (has no intersection)
+        if yi == yf:
+            return -1
+
+        # Secure starting point on top
+        if yi > yf:
+            xi, xf = xf, xi
+            yi, yf = yf, yi
+
+        t = (y - yi) / (yf - yi)
+
+        return xi + t * (xf - xi) if t > 0 and t <= 1 else -1
+
+    def scanline(self, polygon: Polygon, color: Color) -> None:
+        y_min = polygon.y_min()
+        y_max = polygon.y_max()
+
+        for y in range(y_min, y_max):
+            intersections = []
+
+            pix = polygon.points[0][0]
+            piy = polygon.points[0][1]
+
+            for p in range(1, len(polygon.points)):
+                pfx = polygon.points[p][0]
+                pfy = polygon.points[p][1]
+
+                xi = int(self.intersection(y, [[pix, piy], [pfx, pfy]]))
+
+                if xi >= 0:
+                    intersections.append(xi)
+
+                pix = pfx
+                piy = pfy
+
+            pfx = polygon.points[0][0]
+            pfy = polygon.points[0][1]
+
+            xi = int(self.intersection(y, [[pix, piy], [pfx, pfy]]))
+
+            if xi >= 0:
+                intersections.append(xi)
+
+            intersections.sort()
+            for pi in range(0, len(intersections), 2):
+                for pixel in range(intersections[pi], intersections[pi + 1]):
+                    self.set_pixel(pixel, y, color)
