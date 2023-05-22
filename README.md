@@ -57,7 +57,7 @@ img.circumference(300, 280, 20, blue)
 img.flood_fill(250, 250, red)
 ```
 
-## Border Fill
+## Boundary Fill
 
 Tests:
 
@@ -66,7 +66,28 @@ img.ellipse(250, 250, -100, 100, blue)
 img.circumference(250, 250, 50, green)
 img.circumference(300, 280, 20, blue)
 
-img.border_fill(250, 250, blue)
+img.boundary_fill(250, 250, blue)
+```
+
+## Scanline with gradient colors
+
+```py
+pol1 = Polygon(
+    points=[(20, 480, green), (250, 20, red), (480, 480, blue)],
+)
+
+pol1 = Polygon(
+    points=[
+        (20, 20, red),
+        (20, 480, green),
+        (480, 480, red),
+        (480, 20, red),
+        (250, 50, blue),
+    ],
+)
+
+img.scanline_with_color_gradient(polygon=pol1)
+img.draw_polygon(polygon=pol1, color=green)
 ```
 
 ## Class page

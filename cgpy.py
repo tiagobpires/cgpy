@@ -1,6 +1,13 @@
 import pygame
 from pygame import gfxdraw
-from math import sin, ceil, floor
+from math import sin, ceil, floor, pi, cos
+import numpy as np
+import time
+from PIL import Image
+import random
+import os
+
+cg_dir = os.getcwd()
 
 
 class Color:
@@ -10,40 +17,102 @@ class Color:
         self.b = values[2]
         self.a = values[3] if len(values) == 4 else 255
 
+    @classmethod
+    def get_default_colors(cls) -> dict[str, "Color"]:
+        return {
+            "red": Color((255, 0, 0)),
+            "green": Color((0, 255, 0)),
+            "green_pastel1": Color((181, 255, 172)),
+            "green_pastel2": Color((72, 181, 163)),
+            "blue": Color((0, 0, 255)),
+            "blue_pastel": Color((111, 183, 214)),
+            "purple_pastel": Color((165, 137, 193)),
+            "red_pastel": Color((255, 150, 129)),
+            "blank": Color((255, 255, 255)),
+            "black": Color((0, 0, 0)),
+        }
+
     def get_color(self):
         return (self.r, self.g, self.b, self.a)
 
     def with_alpha(self, a) -> "Color":
         return Color((self.r, self.g, self.b, a))
 
-    def __eq__(self, color):
+    def sub_color_gradient(self, color, t) -> "Color":
+        return Color(
+            (
+                int((color.r - self.r) * t + self.r),
+                int((color.g - self.g) * t + self.g),
+                int((color.b - self.b) * t + self.b),
+                int((color.a - self.a) * t + self.a),
+            )
+        )
+
+    def __eq__(self, color) -> bool:
         return self.r == color.r and self.g == color.g and self.b == color.b
 
-    def __ne__(self, color):
+    def __ne__(self, color) -> bool:
         return not (self.r == color.r and self.g == color.g and self.b == color.b)
+
+    def __sub__(self, color) -> "Color":
+        return Color((self.r - color.r, self.g - color.g, self.b - color.b))
 
     def __repr__(self) -> str:
         return f"({self.r}, {self.g}, {self.b}, {self.a})"
 
 
 class Polygon:
-    def __init__(self, points: list[tuple[int, int]] = []) -> None:
+    def __init__(self, points: list[list[int, int, Color]] = []) -> None:
         self.points = points
 
-    def insert_points(self, points: list[tuple[int, int]]) -> None:
+    def insert_points(self, points: list[list[int, int, Color]]) -> None:
         self.points += points
 
-    def update_point(self, pos: int, point: tuple[int, int]) -> None:
+    def update_point(self, pos: int, point: list[int, int, Color]) -> None:
         self.points[pos] = point
 
     def y_min(self) -> int:
-        return min(row[1] for row in self.points)
+        return min(int(row[1]) for row in self.points)
 
     def y_max(self) -> int:
-        return max(row[1] for row in self.points)
+        return max(int(row[1]) for row in self.points)
+
+    def center(self) -> tuple[int, int]:
+        x_sum = sum(row[0] for row in self.points)
+        y_sum = sum(row[1] for row in self.points)
+        num_points = len(self.points)
+
+        center_x = int(x_sum / num_points)
+        center_y = int(y_sum / num_points)
+
+        return center_x, center_y
 
 
-class Image:
+class TexturePolygon:
+    def __init__(self, points: list[list[int, int, float, float]] = []) -> None:
+        self.points = points
+
+    def insert_points(self, points: list[list[int, int, float, float]]) -> None:
+        self.points += points
+
+    def y_min(self) -> int:
+        return min(int(row[1]) for row in self.points)
+
+    def y_max(self) -> int:
+        return max(int(row[1]) for row in self.points)
+
+    def center(self) -> tuple[int, int]:
+        x_sum = sum(row[0] for row in self.points)
+        y_sum = sum(row[1] for row in self.points)
+        num_points = len(self.points)
+
+        center_x = int(x_sum / num_points)
+        center_y = int(y_sum / num_points)
+
+        return center_x, center_y
+
+
+class Game:
     def __init__(self, height: int, width: int, caption: str = "Trabalho CG") -> None:
         self.height = height
         self.width = width
@@ -52,6 +121,7 @@ class Image:
         pygame.display.set_caption(caption)
 
         self.surface = pygame.display.set_mode((width, height))
+        self.surface.fill((0, 0, 0))
 
     def run(self):
         while True:
@@ -60,14 +130,34 @@ class Image:
                     pygame.quit()
             pygame.display.update()
 
+    def check_for_quit(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+
     def set_pixel(self, x: int, y: int, color: Color) -> None:
-        x = int(min(max(x, 0), self.width))
-        y = int(min(max(y, 0), self.height))
+        x = int(min(max(x, 0), self.width - 1))
+        y = int(min(max(y, 0), self.height - 1))
 
         gfxdraw.pixel(self.surface, x, y, color.get_color())
 
-    def get_pixel(self, x: int, y: int):
+    def get_pixel(self, x: int, y: int) -> tuple[int]:
         color = self.surface.get_at((x, y))
+
+        return (color[0], color[1], color[2], color[3])
+
+    def get_pixel_with_texture(
+        self, texture: np.ndarray, x: int, y: int
+    ) -> tuple[int, int, int]:
+        num_rows, num_cols, _ = texture.shape
+
+        x = max(min(x, 1), 0)
+        y = max(min(y, 1), 0)
+
+        x = int(x * (num_cols - 1))
+        y = int(y * (num_rows - 1))
+
+        color = texture[y][x]
 
         return (color[0], color[1], color[2])
 
@@ -201,7 +291,7 @@ class Image:
 
         p = 3 - 2 * r
 
-        while y > x:
+        while y >= x:
             x_aux, y_aux = y, x
 
             for x_signal, y_signal in sectors:
@@ -230,7 +320,7 @@ class Image:
 
         p = ry_squared - (rx_squared * ry) + (0.25 * rx_squared)
 
-        while px < py:
+        while px <= py:
             x_aux, y_aux = x, y
 
             for x_signal, y_signal in sectors:
@@ -270,7 +360,7 @@ class Image:
                 px += 2 * ry_squared
                 p += rx_squared - py + px
 
-    def flood_fill(self, x: int, y: int, color: Color) -> None:
+    def flood_fill(self, x: int, y: int, color: Color, animation: bool = False) -> None:
         initial_color = Color(self.get_pixel(x, y))
 
         if color == initial_color:
@@ -283,6 +373,10 @@ class Image:
 
             if Color(self.get_pixel(x, y)) != initial_color:
                 continue
+
+            if animation:
+                time.sleep(0.000001)
+                pygame.display.update()
 
             self.set_pixel(x, y, color)
 
@@ -328,18 +422,14 @@ class Image:
             if y >= 1:
                 stack.append((x, y - 1))
 
-    def draw_polygon(self, polygon: Polygon, color: Color) -> None:
-        xi, yi = polygon.points[0]
+    def draw_polygon(self, polygon: Polygon | TexturePolygon, color: Color) -> None:
+        for i in range(len(polygon.points)):
+            xi, yi = polygon.points[i][:2]
+            xf, yf = polygon.points[(i + 1) % len(polygon.points)][:2]
 
-        for i in range(1, len(polygon.points)):
-            xf, yf = polygon.points[i]
-            self.line_DDA(xi, yi, xf, yf, color)
-            xi, yi = xf, yf
+            self.line_DDA(int(xi), int(yi), int(xf), int(yf), color)
 
-        xf, yf = polygon.points[0]
-        self.line_DDA(xi, yi, xf, yf, color)
-
-    def intersection(self, y: int, segment: list[list[int]]) -> int:
+    def intersection_base(self, y: int, segment: list[list[int]]) -> int:
         xi = segment[0][0]
         yi = segment[0][1]
         xf = segment[1][0]
@@ -356,9 +446,9 @@ class Image:
 
         t = (y - yi) / (yf - yi)
 
-        return xi + t * (xf - xi) if t > 0 and t <= 1 else -1
+        return int(xi + t * (xf - xi)) if t > 0 and t <= 1 else -1
 
-    def scanline(self, polygon: Polygon, color: Color) -> None:
+    def scanline_base(self, polygon: Polygon | TexturePolygon, color: Color) -> None:
         y_min = polygon.y_min()
         y_max = polygon.y_max()
 
@@ -372,7 +462,7 @@ class Image:
                 pfx = polygon.points[p][0]
                 pfy = polygon.points[p][1]
 
-                xi = int(self.intersection(y, [[pix, piy], [pfx, pfy]]))
+                xi = self.intersection_base(y, [[pix, piy], [pfx, pfy]])
 
                 if xi >= 0:
                     intersections.append(xi)
@@ -383,12 +473,319 @@ class Image:
             pfx = polygon.points[0][0]
             pfy = polygon.points[0][1]
 
-            xi = int(self.intersection(y, [[pix, piy], [pfx, pfy]]))
+            xi = self.intersection_base(y, [[pix, piy], [pfx, pfy]])
 
             if xi >= 0:
                 intersections.append(xi)
 
-            intersections.sort()
             for pi in range(0, len(intersections), 2):
-                for pixel in range(intersections[pi], intersections[pi + 1]):
-                    self.set_pixel(pixel, y, color)
+                x1 = intersections[pi]
+                x2 = intersections[pi + 1]
+
+                if x2 < x1:
+                    x1, x2 = x2, x1
+
+                for xk in range(x1, x2 + 1):
+                    self.set_pixel(xk, y, color)
+
+    def intersection_with_color_gradient(
+        self, y: int, segment: list[list[int, int, Color]]
+    ) -> tuple[int, Color]:
+        xi = segment[0][0]
+        yi = segment[0][1]
+        c1 = segment[0][2]
+
+        xf = segment[1][0]
+        yf = segment[1][1]
+        c2 = segment[1][2]
+
+        # Horizontal segment (has no intersection)
+        if yi == yf:
+            return -1, c1
+
+        # Secure starting point on top
+        if yi > yf:
+            xi, xf = xf, xi
+            yi, yf = yf, yi
+            c1, c2 = c2, c1
+
+        t = (y - yi) / (yf - yi)
+
+        if t > 0 and t <= 1:
+            c = c1.sub_color_gradient(c2, t)
+            return int(xi + t * (xf - xi)), c
+
+        return -1, c1
+
+    def scanline_with_color_gradient(self, polygon: Polygon) -> None:
+        y_min = polygon.y_min()
+        y_max = polygon.y_max()
+
+        for y in range(y_min, y_max + 1):
+            intersections: tuple[int, Color] = []
+
+            for p in range(len(polygon.points)):
+                xi, xic = self.intersection_with_color_gradient(
+                    y,
+                    [polygon.points[p], polygon.points[(p + 1) % len(polygon.points)]],
+                )
+
+                if xi >= 0:
+                    intersections.append((xi, xic))
+
+            intersections.sort(key=lambda intersection: intersection[0])
+
+            for pi in range(0, len(intersections), 2):
+                x1, c1 = intersections[pi]
+                x2, c2 = intersections[pi + 1]
+
+                if x1 == x2:
+                    continue
+
+                if x2 < x1:
+                    x1, x2 = x2, x1
+                    c1, c2 = c2, c1
+
+                for xk in range(x1, x2 + 1):
+                    p = (xk - x1) / (x2 - x1)
+
+                    interpolated_color = c1.sub_color_gradient(c2, p)
+
+                    self.set_pixel(xk, y, interpolated_color)
+
+    def intersection_with_texture(self, y: int, segment: list[list[int]]) -> list[int]:
+        pi = segment[0]
+        pf = segment[1]
+
+        # Horizontal segment (has no intersection)
+        if pi[1] == pf[1]:
+            return [-1, 0, 0, 0]
+
+        # Secure starting point on top
+        if pi[1] > pf[1]:
+            pi, pf = pf, pi
+
+        t = (y - pi[1]) / (pf[1] - pi[1])
+
+        if t > 0 and t <= 1:
+            x = pi[0] + t * (pf[0] - pi[0])
+
+            tx = pi[2] + t * (pf[2] - pi[2])
+            ty = pi[3] + t * (pf[3] - pi[3])
+
+            return [x, y, tx, ty]
+
+        return [-1, 0, 0, 0]
+
+    def scanline_with_texture(
+        self, polygon: TexturePolygon, texture: np.ndarray
+    ) -> None:
+        y_min = polygon.y_min()
+        y_max = polygon.y_max()
+
+        for y in range(y_min, y_max + 1):
+            intersections: list[list[int, int, int, int]] = []
+
+            for p in range(len(polygon.points)):
+                pi = polygon.points[p]
+                pf = polygon.points[(p + 1) % len(polygon.points)]
+
+                intersection = self.intersection_with_texture(y, [pi, pf])
+
+                if intersection[0] >= 0:
+                    intersections.append(intersection)
+
+            intersections.sort(key=lambda intersection: intersection[0])
+
+            for pi in range(0, len(intersections), 2):
+                p1 = intersections[pi]
+                p2 = intersections[pi + 1]
+
+                x1 = p1[0]
+                x2 = p2[0]
+
+                if x1 == x2:
+                    continue
+
+                if x2 < x1:
+                    p1, p2 = p2, p1
+
+                for xk in range(int(p1[0]), int(p2[0]) + 1):
+                    pc = (xk - p1[0]) / (p2[0] - p1[0])
+
+                    tx = p1[2] + pc * (p2[2] - p1[2])
+                    ty = p1[3] + pc * (p2[3] - p1[3])
+
+                    color = Color(self.get_pixel_with_texture(texture, tx, ty))
+
+                    self.set_pixel(xk, y, color)
+
+    def create_transformation_matrix(self) -> np.ndarray:
+        return np.identity(3)
+
+    def compose_translation(
+        self, matrix: np.ndarray, tx: float, ty: float
+    ) -> np.ndarray:
+        return (
+            np.array(
+                [
+                    [1, 0, tx],
+                    [0, 1, ty],
+                    [0, 0, 1],
+                ]
+            )
+            @ matrix
+        )
+
+    def compose_scale(self, matrix: np.ndarray, sx: float, sy: float) -> np.ndarray:
+        return (
+            np.array(
+                [
+                    [sx, 0, 0],
+                    [0, sy, 0],
+                    [0, 0, 1],
+                ]
+            )
+            @ matrix
+        )
+
+    def compose_rotation(self, matrix: np.ndarray, ang: float) -> np.ndarray:
+        ang = (ang * pi) / 180
+
+        return np.array(
+            [
+                [cos(ang), -sin(ang), 0],
+                [sin(ang), cos(ang), 0],
+                [0, 0, 1],
+            ]
+            @ matrix
+        )
+
+    def apply_transformation(
+        self, polygon: Polygon | TexturePolygon, matrix: np.ndarray
+    ):
+        for i in range(len(polygon.points)):
+            pt = polygon.points[i][:2]
+            pt.append(1)
+            pt = np.transpose(pt)
+
+            pt = matrix @ pt
+
+            pt = np.transpose(pt)
+            polygon.points[i][:2] = pt[:2]
+
+    def map_window(
+        self,
+        p: Polygon,
+        window: tuple[int, int, int, int],
+        viewport: tuple[int, int],
+    ) -> tuple[int, int]:
+        lv = viewport[0]
+        av = viewport[1]
+        xi = window[0]
+        yi = window[1]
+        xf = window[2]
+        yf = window[3]
+
+        m = np.array(
+            [
+                [lv / (xf - xi), 0, -lv * xi / (xf - xi)],
+                [0, av / (yf - yi), -av * yi / (yf - yi)],
+                [0, 0, 1],
+            ]
+        )
+
+        self.apply_transformation(p, m)
+
+
+class Cat:
+    def __init__(
+        self,
+        game: Game,
+        window: tuple[int, int, int, int],
+        viewport: tuple[int, int],
+    ) -> None:
+        self.game = game
+        self.cat_texture = np.asarray(
+            Image.open(os.path.join(cg_dir, "resources", "cat.png")),
+        )
+        self.cat_pol = TexturePolygon(
+            [
+                [210, 475, 0, 0],
+                [210, 550, 0, 1],
+                [290, 550, 1, 1],
+                [290, 475, 1, 0],
+            ]
+        )
+
+        self.game.map_window(self.cat_pol, window, viewport)
+        self.game.scanline_with_texture(self.cat_pol, self.cat_texture)
+
+    def move_right(
+        self,
+        window: tuple[int, int, int, int],
+        viewport: tuple[int, int],
+    ):
+        self.game.scanline_base(self.cat_pol, Color((0, 0, 0)))
+
+        m1 = self.game.create_transformation_matrix()
+        m1 = self.game.compose_translation(m1, 8, 0)
+
+        self.game.apply_transformation(self.cat_pol, m1)
+        self.game.map_window(self.cat_pol, window, viewport)
+        self.game.scanline_with_texture(self.cat_pol, self.cat_texture)
+
+    def move_left(
+        self,
+        window: tuple[int, int, int, int],
+        viewport: tuple[int, int],
+    ):
+        self.game.scanline_base(self.cat_pol, Color((0, 0, 0)))
+
+        m1 = self.game.create_transformation_matrix()
+        m1 = self.game.compose_translation(m1, -8, 0)
+
+        self.game.apply_transformation(self.cat_pol, m1)
+        self.game.map_window(self.cat_pol, window, viewport)
+        self.game.scanline_with_texture(self.cat_pol, self.cat_texture)
+
+
+def create_random_polygon(viewport: tuple[int, int]) -> tuple[Polygon, any]:
+    colors = list(Color.get_default_colors().values())
+
+    pol_width = random.randint(40, 90)
+    pol_height = random.randint(40, 80)
+
+    pol_xi = random.randint(0, viewport[0] - pol_width)
+    pol_yi = random.randint(0, 30)
+
+    pol_points = [
+        [pol_xi, pol_yi],
+        [pol_xi, pol_yi + pol_height],
+        [pol_xi + pol_width, pol_yi + pol_height],
+        [pol_xi + pol_width, pol_yi],
+    ]
+
+    polygon_type = random.choice(["simple", "color_gradient", "texture",  "color_gradient", "texture",  "color_gradient", "texture"],)
+
+    if polygon_type == "color_gradient":
+        for i in range(4):
+            pol_points[i].append(random.choice(colors))
+    elif polygon_type == "texture":
+        pol_points[0] += [0, 0]
+        pol_points[1] += [0, 1]
+        pol_points[2] += [1, 1]
+        pol_points[3] += [1, 0]
+
+    pol = Polygon(points=pol_points)
+
+    if polygon_type == "simple":
+        return pol, random.choice(colors)
+    elif polygon_type == "color_gradient":
+        return pol, None
+
+    image = random.choice(["zap", "dog_coin", "cat_polygon", "book"])
+    texture = np.asarray(
+        Image.open(os.path.join(cg_dir, "resources", f"{image}.png")),
+    )
+    return pol, texture
