@@ -22,13 +22,13 @@ blank = Color((255, 255, 255))
 black = Color((0, 0, 0))
 
 cg_dir = os.getcwd()
-viewport = [500, 550]
+viewport = [0, 0, 500, 550]
 window = [0, 0, 500, 550]
 
 
 FPS = 60
 ADD_POLYGON_INTERVAL = 3000
-MOVE_POLYGON_INTERVAL = 1200
+MOVE_POLYGON_INTERVAL = 30
 
 
 def home_screen(game: Game):
@@ -269,6 +269,7 @@ def home_screen(game: Game):
 
 def sky_falling_game(game: Game):
     cat = Cat(game=game, window=window, viewport=viewport, steps=8)
+
     enemy_polygons = EnemyPolygons(game=game, window=window, viewport=viewport)
 
     running = True
@@ -320,9 +321,43 @@ def sky_falling_game(game: Game):
 
 
 def main():
-    game = Game(width=viewport[0], height=viewport[1])
+    game = Game(width=500, height=550)
+
     # home_screen(game)
     sky_falling_game(game)
+
+    # viewport1 = [0, 0, 250, 250]
+    # window1 = [0, 0, 500, 500]
+
+    # viewport2 = [250, 250, 500, 500]
+    # window2 = [0, 0, 250, 250]
+
+    # instructions_pol = TexturePolygon(
+    #     [
+    #         [80, 240, 0, 0],
+    #         [80, 480, 0, 1],
+    #         [420, 480, 1, 1],
+    #         [420, 240, 1, 0],
+    #     ]
+    # )
+
+    # instructions_texture = np.asarray(
+    #     Image.open(os.path.join(cg_dir, "resources", "instructions.png"))
+    # )
+
+    # # print(instructions_pol.points)
+    # pol1 = game.map_window(instructions_pol, window1, viewport2)
+    # print(type(pol1))
+
+    # # print(instructions_pol.points)
+
+    # print(pol1)
+    # game.scanline_with_texture(pol1, instructions_texture)
+
+    # pol2 = game.map_window(instructions_pol, window1, viewport1)
+    # game.scanline_with_texture(pol2, instructions_texture)
+
+    # game.run()
 
 
 if __name__ == "__main__":
