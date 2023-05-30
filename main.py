@@ -1,12 +1,11 @@
 import os
-import random
 import time
 
 import numpy as np
 import pygame
 from PIL import Image
 
-from cgpy import Cat, Color, Game, Polygon, TexturePolygon, create_random_polygon
+from cgpy import Cat, Color, Game, Polygon, TexturePolygon, EnemyPolygons
 
 clock = pygame.time.Clock()
 
@@ -28,7 +27,8 @@ window = [0, 0, 500, 550]
 
 
 FPS = 60
-ADD_POLYGON_INTERVAL = 2500
+ADD_POLYGON_INTERVAL = 3000
+MOVE_POLYGON_INTERVAL = 1200
 
 
 def home_screen(game: Game):
@@ -268,13 +268,15 @@ def home_screen(game: Game):
 
 
 def sky_falling_game(game: Game):
-    cat = Cat(game=game, window=window, viewport=viewport)
+    cat = Cat(game=game, window=window, viewport=viewport, steps=8)
+    enemy_polygons = EnemyPolygons(game=game, window=window, viewport=viewport)
 
     running = True
     move_right = False
     move_left = False
 
     polygon_spawn_timer = pygame.time.get_ticks()
+    polygon_move_timer = pygame.time.get_ticks()
 
     while running:
         for event in pygame.event.get():
@@ -287,7 +289,6 @@ def sky_falling_game(game: Game):
 
                 elif event.key == pygame.K_LEFT:
                     move_left = True
-                    cat.move_left(window=window, viewport=viewport)
 
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_RIGHT:
@@ -301,23 +302,18 @@ def sky_falling_game(game: Game):
         if move_left:
             cat.move_left(window=window, viewport=viewport)
 
-        # Check if it's time to add a new cat
         current_time = pygame.time.get_ticks()
+
         if current_time - polygon_spawn_timer >= ADD_POLYGON_INTERVAL:
-            pol, aux = create_random_polygon(viewport=viewport)
-
-            game.map_window(pol, window, viewport)
-
-            if type(aux) is Color:  # Simple polygon
-                game.scanline_base(polygon=pol, color=aux)
-
-            elif aux is None:  # Polygon with color gradient
-                game.scanline_with_color_gradient(polygon=pol)
-
-            else:  # Polygon with texture
-                game.scanline_with_texture(polygon=pol, texture=aux)
-
+            enemy_polygons.create_random_polygon()
             polygon_spawn_timer = current_time
+
+        if current_time - polygon_move_timer >= MOVE_POLYGON_INTERVAL:
+            enemy_polygons.move_polygons()
+            if enemy_polygons.check_for_colision(cat):
+                break
+
+            polygon_move_timer = current_time
 
         clock.tick(FPS)
         pygame.display.update()
@@ -325,7 +321,7 @@ def sky_falling_game(game: Game):
 
 def main():
     game = Game(width=viewport[0], height=viewport[1])
-    home_screen(game)
+    # home_screen(game)
     sky_falling_game(game)
 
 
