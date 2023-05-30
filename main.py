@@ -22,13 +22,9 @@ blank = Color((255, 255, 255))
 black = Color((0, 0, 0))
 
 cg_dir = os.getcwd()
-viewport = [0, 0, 500, 550]
-window = [0, 0, 500, 550]
 
 
-FPS = 60
-ADD_POLYGON_INTERVAL = 3000
-MOVE_POLYGON_INTERVAL = 30
+FPS = 45
 
 
 def home_screen(game: Game):
@@ -219,7 +215,7 @@ def home_screen(game: Game):
     m5 = game.compose_translation(m5, -250, -165)
     m5 = game.compose_scale(m5, 1.8, 1.3)
     m5 = game.compose_translation(m5, 250, 165)
-    game.apply_transformation(rectangle_pol, m5)
+    rectangle_pol = game.apply_transformation(rectangle_pol, m5)
 
     m5 = game.create_transformation_matrix()
 
@@ -233,28 +229,32 @@ def home_screen(game: Game):
     for _ in range(5):
         m1 = game.compose_translation(m1, 0, 100)
         game.scanline_base(circumference_green_1_pol, black)
-        game.apply_transformation(circumference_green_1_pol, m1)
+        circumference_green_1_pol = game.apply_transformation(
+            circumference_green_1_pol, m1
+        )
         game.scanline_with_texture(circumference_green_1_pol, circumference_green_1_tex)
 
         m2 = game.compose_rotation(m2, -3)
         m2 = game.compose_translation(m2, 0, 50)
         game.scanline_base(purple_ellipse_1_pol, black)
-        game.apply_transformation(purple_ellipse_1_pol, m2)
+        purple_ellipse_1_pol = game.apply_transformation(purple_ellipse_1_pol, m2)
         game.scanline_with_texture(purple_ellipse_1_pol, purple_ellipse_1_tex)
 
-        m3 = game.compose_translation(m3, 0, 80)
+        m3 = game.compose_translation(m3, -5, 80)
         game.scanline_base(red_circumference_pol, black)
-        game.apply_transformation(red_circumference_pol, m2)
+        red_circumference_pol = game.apply_transformation(red_circumference_pol, m3)
         game.scanline_with_texture(red_circumference_pol, red_circumference_tex)
 
         m4 = game.compose_translation(m4, 0, 45)
         game.scanline_base(green_2_circumference_pol, black)
-        game.apply_transformation(green_2_circumference_pol, m4)
+        green_2_circumference_pol = game.apply_transformation(
+            green_2_circumference_pol, m4
+        )
         game.scanline_with_texture(green_2_circumference_pol, green_2_circumference_tex)
 
         m4 = game.compose_translation(m5, 0, 30)
         game.scanline_base(rectangle_pol, black)
-        game.apply_transformation(rectangle_pol, m4)
+        rectangle_pol = game.apply_transformation(rectangle_pol, m4)
         game.scanline_base(rectangle_pol, blue_pastel)
 
         time.sleep(0.25)
@@ -268,9 +268,29 @@ def home_screen(game: Game):
 
 
 def sky_falling_game(game: Game):
-    cat = Cat(game=game, window=window, viewport=viewport, steps=8)
+    viewport_game = [0, 0, 500, 550]
+    window_game = [0, 0, 500, 550]
 
-    enemy_polygons = EnemyPolygons(game=game, window=window, viewport=viewport)
+    viewport_mini_map = [450, 0, 500, 55]
+    window_mini_map = [0, 0, 450, 550]
+
+    cat = Cat(
+        game=game,
+        windows=[window_game, window_mini_map],
+        viewports=[viewport_game, viewport_mini_map],
+        steps=8,
+    )
+
+    enemy_polygons = EnemyPolygons(
+        game=game,
+        windows=[window_game, window_mini_map],
+        viewports=[viewport_game, viewport_mini_map],
+    )
+
+    ADD_POLYGON_INTERVAL = 3500
+    MOVE_POLYGON_INTERVAL = 40
+    ROTATE_POLYGON_INTERVAL = 4500
+    SCALE_POLYGON_INTERVAL = 5500
 
     running = True
     move_right = False
@@ -278,6 +298,12 @@ def sky_falling_game(game: Game):
 
     polygon_spawn_timer = pygame.time.get_ticks()
     polygon_move_timer = pygame.time.get_ticks()
+    polygon_rotate_timer = pygame.time.get_ticks()
+    polygon_scale_timer = pygame.time.get_ticks()
+
+    decrease_spawn_time_count = 0
+
+    enemy_polygons.create_random_polygon()
 
     while running:
         for event in pygame.event.get():
@@ -298,15 +324,21 @@ def sky_falling_game(game: Game):
                     move_left = False
 
         if move_right:
-            cat.move_right(window=window, viewport=viewport)
+            cat.move_right()
 
         if move_left:
-            cat.move_left(window=window, viewport=viewport)
+            cat.move_left()
 
         current_time = pygame.time.get_ticks()
 
         if current_time - polygon_spawn_timer >= ADD_POLYGON_INTERVAL:
             enemy_polygons.create_random_polygon()
+            decrease_spawn_time_count += 1
+
+            if decrease_spawn_time_count == 5 and ADD_POLYGON_INTERVAL >= 1000:
+                ADD_POLYGON_INTERVAL -= 200
+                decrease_spawn_time_count = 0
+
             polygon_spawn_timer = current_time
 
         if current_time - polygon_move_timer >= MOVE_POLYGON_INTERVAL:
@@ -316,48 +348,50 @@ def sky_falling_game(game: Game):
 
             polygon_move_timer = current_time
 
+        if current_time - polygon_rotate_timer >= ROTATE_POLYGON_INTERVAL:
+            enemy_polygons.rotate_polygon()
+            polygon_rotate_timer = current_time
+
+        if current_time - polygon_scale_timer >= SCALE_POLYGON_INTERVAL:
+            enemy_polygons.scale_polygon()
+            polygon_scale_timer = current_time
+
         clock.tick(FPS)
         pygame.display.update()
+
+    points = enemy_polygons.enemys_removed
+    print(f"{points} polígonos desviados!")
+
+    game.surface.fill((61, 63, 65))
+    game_over_pol = TexturePolygon(
+        [
+            [0, 125, 0.05, 0],
+            [0, 425, 0.05, 1],
+            [500, 425, 0.95, 1],
+            [500, 125, 0.95, 0],
+        ]
+    )
+
+    game_over_texture = np.asarray(
+        Image.open(os.path.join(cg_dir, "resources", "game_over.jpg"))
+    )
+
+    pol = game.map_window(game_over_pol, window_game, viewport_game)
+    game.scanline_with_texture(pol, game_over_texture)
+
+    pygame.display.update()
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
 
 def main():
     game = Game(width=500, height=550)
 
-    # home_screen(game)
+    home_screen(game)
     sky_falling_game(game)
-
-    # viewport1 = [0, 0, 250, 250]
-    # window1 = [0, 0, 500, 500]
-
-    # viewport2 = [250, 250, 500, 500]
-    # window2 = [0, 0, 250, 250]
-
-    # instructions_pol = TexturePolygon(
-    #     [
-    #         [80, 240, 0, 0],
-    #         [80, 480, 0, 1],
-    #         [420, 480, 1, 1],
-    #         [420, 240, 1, 0],
-    #     ]
-    # )
-
-    # instructions_texture = np.asarray(
-    #     Image.open(os.path.join(cg_dir, "resources", "instructions.png"))
-    # )
-
-    # # print(instructions_pol.points)
-    # pol1 = game.map_window(instructions_pol, window1, viewport2)
-    # print(type(pol1))
-
-    # # print(instructions_pol.points)
-
-    # print(pol1)
-    # game.scanline_with_texture(pol1, instructions_texture)
-
-    # pol2 = game.map_window(instructions_pol, window1, viewport1)
-    # game.scanline_with_texture(pol2, instructions_texture)
-
-    # game.run()
 
 
 if __name__ == "__main__":

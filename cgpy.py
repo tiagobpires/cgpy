@@ -77,6 +77,16 @@ class Polygon:
     def y_max(self) -> int:
         return max(int(row[1]) for row in self.points)
 
+    def center(self) -> tuple[int, int]:
+        x_sum = sum(row[0] for row in self.points)
+        y_sum = sum(row[1] for row in self.points)
+        num_points = len(self.points)
+
+        center_x = int(x_sum / num_points)
+        center_y = int(y_sum / num_points)
+
+        return center_x, center_y
+
     def get_rectangle_bounds(self):
         x_coords = [point[0] for point in self.points]
         y_coords = [point[1] for point in self.points]
@@ -743,8 +753,8 @@ class Cat:
         self,
         game: Game,
         steps: int,
-        window: tuple[int, int, int, int],
-        viewport: tuple[int, int, int, int],
+        windows: list[tuple[int, int, int, int]],
+        viewports: list[tuple[int, int, int, int]],
     ) -> None:
         self.game = game
         self.cat_texture = np.asarray(
@@ -759,48 +769,51 @@ class Cat:
             ]
         )
         self.steps = steps
+        self.windows = windows
+        self.viewports = viewports
 
-        pol = self.game.map_window(self.cat_pol, window, viewport)
-        self.game.scanline_with_texture(pol, self.cat_texture)
+        self._draw_cat()
 
-    def move_right(
-        self,
-        window: tuple[int, int, int, int],
-        viewport: tuple[int, int],
-    ):
+    def move_right(self):
         x_actual = self.cat_pol.points[3][0]
-        if x_actual + self.steps >= viewport[2]:
+        if x_actual + self.steps >= self.viewports[0][2]:
             return
 
-        pol = self.game.map_window(self.cat_pol, window, viewport)
-        self.game.scanline_base(pol, Color((0, 0, 0)))
+        self._reset_pol()
 
         m1 = self.game.create_transformation_matrix()
         m1 = self.game.compose_translation(m1, self.steps, 0)
 
         self.cat_pol = self.game.apply_transformation(self.cat_pol, m1)
 
-        pol = self.game.map_window(self.cat_pol, window, viewport)
-        self.game.scanline_with_texture(pol, self.cat_texture)
+        self._draw_cat()
 
-    def move_left(
-        self,
-        window: tuple[int, int, int, int],
-        viewport: tuple[int, int],
-    ):
+    def move_left(self):
         x_actual = self.cat_pol.points[1][0]
         if x_actual - self.steps <= 0:
             return
 
-        pol = self.game.map_window(self.cat_pol, window, viewport)
-        self.game.scanline_base(pol, Color((0, 0, 0)))
+        self._reset_pol()
 
         m1 = self.game.create_transformation_matrix()
         m1 = self.game.compose_translation(m1, -self.steps, 0)
 
         self.cat_pol = self.game.apply_transformation(self.cat_pol, m1)
 
-        pol = self.game.map_window(self.cat_pol, window, viewport)
+        self._draw_cat()
+
+    def _reset_pol(self):
+        pol = self.game.map_window(self.cat_pol, self.windows[0], self.viewports[0])
+        self.game.scanline_base(pol, Color((0, 0, 0)))
+
+        pol = self.game.map_window(self.cat_pol, self.windows[1], self.viewports[1])
+        self.game.scanline_base(pol, Color((0, 0, 0)))
+
+    def _draw_cat(self):
+        pol = self.game.map_window(self.cat_pol, self.windows[0], self.viewports[0])
+        self.game.scanline_with_texture(pol, self.cat_texture)
+
+        pol = self.game.map_window(self.cat_pol, self.windows[1], self.viewports[1])
         self.game.scanline_with_texture(pol, self.cat_texture)
 
 
@@ -808,13 +821,14 @@ class EnemyPolygons:
     def __init__(
         self,
         game: Game,
-        window: tuple[int, int, int, int],
-        viewport: tuple[int, int, int, int],
+        windows: list[tuple[int, int, int, int]],
+        viewports: list[tuple[int, int, int, int]],
     ) -> None:
         self.game = game
-        self.viewport = viewport
-        self.window = window
+        self.viewports = viewports
+        self.windows = windows
         self.polygons: list[list[Polygon, str, np.ndarray | None, Color | None]] = []
+        self.enemys_removed = 0
 
     def create_random_polygon(self) -> None:
         colors = list(Color.get_default_colors().values())
@@ -822,7 +836,7 @@ class EnemyPolygons:
         pol_width = random.randint(40, 90)
         pol_height = random.randint(40, 80)
 
-        pol_xi = random.randint(0, self.viewport[2] - pol_width)
+        pol_xi = random.randint(0, self.viewports[0][2] - pol_width)
         pol_yi = random.randint(0, 30)
 
         pol_points = [
@@ -857,14 +871,17 @@ class EnemyPolygons:
 
         pol = Polygon(points=pol_points)
 
-        pol_aux = self.game.map_window(pol, self.window, self.viewport)
+        pol_aux1 = self.game.map_window(pol, self.windows[0], self.viewports[0])
+        pol_aux2 = self.game.map_window(pol, self.windows[1], self.viewports[1])
 
         if polygon_type == "simple":
             color = random.choice(colors)
-            self.game.scanline_base(polygon=pol_aux, color=color)
+            self.game.scanline_base(polygon=pol_aux1, color=color)
+            self.game.scanline_base(polygon=pol_aux2, color=color)
 
         elif polygon_type == "color_gradient":
-            self.game.scanline_with_color_gradient(polygon=pol_aux)
+            self.game.scanline_with_color_gradient(polygon=pol_aux1)
+            self.game.scanline_with_color_gradient(polygon=pol_aux2)
 
         else:
             image = random.choice(
@@ -873,7 +890,8 @@ class EnemyPolygons:
             texture = np.asarray(
                 Image.open(os.path.join(cg_dir, "resources", "enemys_textures", image)),
             )
-            self.game.scanline_with_texture(polygon=pol_aux, texture=texture)
+            self.game.scanline_with_texture(polygon=pol_aux1, texture=texture)
+            self.game.scanline_with_texture(polygon=pol_aux2, texture=texture)
 
         self.polygons.append(
             [
@@ -891,31 +909,40 @@ class EnemyPolygons:
             polygon = self.polygons[i][0]
             pol_type = self.polygons[i][1]
 
-            pol_aux = self.game.map_window(polygon, self.window, self.viewport)
-            self.game.scanline_base(pol_aux, Color((0, 0, 0)))
+            pol_aux1 = self.game.map_window(polygon, self.windows[0], self.viewports[0])
+            pol_aux2 = self.game.map_window(polygon, self.windows[1], self.viewports[1])
+            self.game.scanline_base(pol_aux1, Color((0, 0, 0)))
+            self.game.scanline_base(pol_aux2, Color((0, 0, 0)))
 
             y_actual = polygon.points[2][1]
-            if y_actual >= self.viewport[3]:
+            if y_actual >= self.viewports[0][3]:
                 polygons_list.remove(self.polygons[i])
+                self.enemys_removed += 1
                 continue
 
             m1 = self.game.create_transformation_matrix()
-            m1 = self.game.compose_translation(m1, 0, 3)
+            m1 = self.game.compose_translation(m1, 0, 4)
 
             polygon = self.game.apply_transformation(polygon, m1)
             self.polygons[i][0] = polygon
 
-            pol_aux = self.game.map_window(polygon, self.window, self.viewport)
+            pol_aux1 = self.game.map_window(polygon, self.windows[0], self.viewports[0])
+            pol_aux2 = self.game.map_window(polygon, self.windows[1], self.viewports[1])
 
             if pol_type == "simple":
-                self.game.scanline_base(polygon=pol_aux, color=self.polygons[i][3])
+                self.game.scanline_base(polygon=pol_aux1, color=self.polygons[i][3])
+                self.game.scanline_base(polygon=pol_aux2, color=self.polygons[i][3])
 
             elif pol_type == "color_gradient":
-                self.game.scanline_with_color_gradient(polygon=pol_aux)
+                self.game.scanline_with_color_gradient(polygon=pol_aux1)
+                self.game.scanline_with_color_gradient(polygon=pol_aux2)
 
             else:
                 self.game.scanline_with_texture(
-                    polygon=pol_aux, texture=self.polygons[i][2]
+                    polygon=pol_aux1, texture=self.polygons[i][2]
+                )
+                self.game.scanline_with_texture(
+                    polygon=pol_aux2, texture=self.polygons[i][2]
                 )
 
         self.polygons = polygons_list
@@ -924,3 +951,110 @@ class EnemyPolygons:
         return any(
             cat.cat_pol.check_collision(polygon) for polygon, _, _, _ in self.polygons
         )
+
+    def rotate_polygon(self) -> None:
+        if len(self.polygons) == 0:
+            return
+
+        m = self.game.create_transformation_matrix()
+        m = self.game.compose_rotation(m, 5)
+        m = self.game.compose_translation(m, 20, 0)
+
+        pol_pos = random.randint(0, len(self.polygons) - 1)
+
+        if self.polygons[pol_pos][0].points[0][0] < 50:
+            return
+
+        pol_aux1 = self.game.map_window(
+            self.polygons[pol_pos][0], self.windows[0], self.viewports[0]
+        )
+        pol_aux2 = self.game.map_window(
+            self.polygons[pol_pos][0], self.windows[1], self.viewports[1]
+        )
+        self.game.scanline_base(pol_aux1, Color((0, 0, 0)))
+        self.game.scanline_base(pol_aux2, Color((0, 0, 0)))
+
+        self.polygons[pol_pos][0] = self.game.apply_transformation(
+            self.polygons[pol_pos][0], m
+        )
+
+        pol_aux1 = self.game.map_window(
+            self.polygons[pol_pos][0], self.windows[0], self.viewports[0]
+        )
+        pol_aux2 = self.game.map_window(
+            self.polygons[pol_pos][0], self.windows[1], self.viewports[1]
+        )
+
+        if self.polygons[pol_pos][1] == "simple":
+            self.game.scanline_base(polygon=pol_aux1, color=self.polygons[pol_pos][3])
+            self.game.scanline_base(polygon=pol_aux2, color=self.polygons[pol_pos][3])
+
+        elif self.polygons[pol_pos][1] == "color_gradient":
+            self.game.scanline_with_color_gradient(polygon=pol_aux1)
+            self.game.scanline_with_color_gradient(polygon=pol_aux2)
+
+        else:
+            self.game.scanline_with_texture(
+                polygon=pol_aux1, texture=self.polygons[pol_pos][2]
+            )
+            self.game.scanline_with_texture(
+                polygon=pol_aux2, texture=self.polygons[pol_pos][2]
+            )
+
+    def scale_polygon(self) -> None:
+        if len(self.polygons) == 0:
+            return
+
+        pol_pos = len(self.polygons) - 1
+
+        polygon = self.polygons[pol_pos][0]
+
+        centerx, centery = polygon.center()
+
+        m = self.game.create_transformation_matrix()
+
+        m = self.game.compose_translation(m, -centerx, -centery)
+        m = self.game.compose_scale(m, 1.3, 1.3)
+        m = self.game.compose_translation(m, centerx, centery)
+
+        if (
+            self.polygons[pol_pos][0].points[0][0] < 50
+            or self.polygons[pol_pos][0].points[0][0] > 500
+        ):
+            return
+
+        pol_aux1 = self.game.map_window(
+            self.polygons[pol_pos][0], self.windows[0], self.viewports[0]
+        )
+        pol_aux2 = self.game.map_window(
+            self.polygons[pol_pos][0], self.windows[1], self.viewports[1]
+        )
+        self.game.scanline_base(pol_aux1, Color((0, 0, 0)))
+        self.game.scanline_base(pol_aux2, Color((0, 0, 0)))
+
+        self.polygons[pol_pos][0] = self.game.apply_transformation(
+            self.polygons[pol_pos][0], m
+        )
+
+        pol_aux1 = self.game.map_window(
+            self.polygons[pol_pos][0], self.windows[0], self.viewports[0]
+        )
+        pol_aux2 = self.game.map_window(
+            self.polygons[pol_pos][0], self.windows[1], self.viewports[1]
+        )
+
+        if self.polygons[pol_pos][1] == "simple":
+            self.game.scanline_base(polygon=pol_aux1, color=self.polygons[pol_pos][3])
+            self.game.scanline_base(polygon=pol_aux2, color=self.polygons[pol_pos][3])
+
+        elif self.polygons[pol_pos][1] == "color_gradient":
+            self.game.scanline_with_color_gradient(polygon=pol_aux1)
+            self.game.scanline_with_color_gradient(polygon=pol_aux2)
+
+        else:
+            self.game.scanline_with_texture(
+                polygon=pol_aux1, texture=self.polygons[pol_pos][2]
+            )
+            self.game.scanline_with_texture(
+                polygon=pol_aux2, texture=self.polygons[pol_pos][2]
+            )
