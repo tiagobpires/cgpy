@@ -27,7 +27,7 @@ cg_dir = os.getcwd()
 FPS = 45
 
 
-def home_screen(game: Game):
+def home_screen(game):
     sky_falling_logo_pol = TexturePolygon(
         [
             [0, 0, 0, 0],
@@ -267,7 +267,7 @@ def home_screen(game: Game):
     pygame.display.update()
 
 
-def sky_falling_game(game: Game):
+def sky_falling_game(game):
     viewport_game = [0, 0, 500, 550]
     window_game = [0, 0, 500, 550]
 

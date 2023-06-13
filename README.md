@@ -1,95 +1,62 @@
-### Lines
+## [Primeira Avaliação - Computação Gráfica I](http://www.lia.ufc.br/~yuri/20231/cg/trabcg1.html)
 
-## Bresenhan
+Dupla:
+- Tiago Barros Pires - 520401
+- João Lucas Sales Paiva - 497065
 
-Tests for bresenham:
+OBS: o aluno João Lucas não contribuiu ativamente no trabalho por motivos familiares.
 
-```py
-img.line_bresenham(250, 250, 500, 500, red)
-img.line_bresenham(250, 250, 0, 0, red)
-img.line_bresenham(250, 250, 0, 500, red)
-img.line_bresenham(250, 250, 500, 0, red)
-img.line_bresenham(250, 250, 250, 500, red)
-img.line_bresenham(250, 250, 500, 250, red)
-img.line_bresenham(250, 250, 250, 0, red)
-img.line_bresenham(250, 250, 0, 250, red)
+
+### Descrição do trabalho
+
+O trabalho é um jogo onde você deve utilizar as setas "<-" e "->" para se mover pela tela e desviar dos polígonos que estão caindo. No final do jogo, é exibido pelo terminal quantos polígonos você conseguiu desviar!
+
+
+### Instruções para execução
+
+1. Criar e ativar ambiente virtual (opcional)
+
+```sh
+python -m venv venv
 ```
 
-Base:
+No Windows:
 
-- https://github.com/encukou/bresenham/blob/master/bresenham.py
-- https://en.wikipedia.org/wiki/Bresenham's_line_algorithm
-
-
-## Circumference
-
-Tests:
-
-```py
-img.circumference(250, 250, 200, red)
+```sh
+venv\Scripts\activate.bat
 ```
 
-Base:
+No Linux:
 
-- https://www.geeksforgeeks.org/bresenhams-circle-drawing-algorithm/
-- https://www.javatpoint.com/computer-graphics-bresenhams-circle-algorithm
-
-
-## Ellipse
-
-Tests:
-
-```py
-img.ellipse(250, 250, 200, 100, red)
-img.ellipse(250, 250, 100, 200, red)
-img.ellipse(250, 250, -100, 100, red)
+```sh
+source venv/bin/activate
 ```
 
-## Flood Fill
+2. Instalar bibliotecas necessárias
 
-Tests:
-
-```py
-img.ellipse(250, 250, -100, 100, blue)
-img.circumference(250, 250, 50, green)
-img.circumference(300, 280, 20, blue)
-
-img.flood_fill(250, 250, red)
+```sh
+pip install -r requirements.txt
 ```
 
-## Boundary Fill
+3. Executar arquivo
 
-Tests:
-
-```py
-img.ellipse(250, 250, -100, 100, blue)
-img.circumference(250, 250, 50, green)
-img.circumference(300, 280, 20, blue)
-
-img.boundary_fill(250, 250, blue)
+```sh
+python main.py
 ```
 
-## Scanline with gradient colors
 
-```py
-pol1 = Polygon(
-    points=[(20, 480, green), (250, 20, red), (480, 480, blue)],
-)
+### Requisitos do trabalho
 
-pol1 = Polygon(
-    points=[
-        (20, 20, red),
-        (20, 480, green),
-        (480, 480, red),
-        (480, 20, red),
-        (250, 50, blue),
-    ],
-)
+1. O programa possui uma tela de abertura com rasterização de tela (retas brancas ligando as formas), circunferências e elipse. 
 
-img.scanline_with_color_gradient(polygon=pol1)
-img.draw_polygon(polygon=pol1, color=green)
-```
+2. As figuras criadas na tela de abertura são preenchidas com o algoritmo Flood Fill em uma animação.
 
-## Class page
+3. Após clicar em "Enter", é exibida uma pequena animação das formas caindo. Nela, as figuras são transformadas em polígonos e são aplidas as 3 principais transformações geométricas: translação, escala e rotação.
 
-http://lia.ufc.br/~yuri/20231/cg/
+4. Quando o jogo se inicia, são utilizadas duas janelas e duas viewports. As primeiras são a do próprio jogo e não possuem diferenças com o tamanho da tela. Já as segundas são o "minimap" exposto no lado superior direito. Nele, são apresentadas transformações de translação e escala (zoom)
+
+5. No jogo, são gerados polígonos aleatoriamente. Dentre eles, existem polígonos normais (uma cor), polígonos com gradientes de cores (definidas por vértice) e texturas coloridas, todos preenchidos por scanline.
+
+6. Também são feitas transformações de forma aleatória nos polígonos caindo. São elas: translação, escala e rotação.
+
+OBS: Todas as letras foram feitas utilizando imagens/texturas. De biblioteca gráfica, foi utilizado apenas o "set_pixel" e "get_pixel", como requisitado.
