@@ -1,12 +1,5 @@
 ## [Primeira Avaliação - Computação Gráfica I](http://www.lia.ufc.br/~yuri/20231/cg/trabcg1.html)
 
-Dupla:
-- Tiago Barros Pires - 520401
-- João Lucas Sales Paiva - 497065
-
-OBS: o aluno João Lucas não contribuiu ativamente no trabalho por motivos familiares.
-
-
 ### Descrição do trabalho
 
 O trabalho é um jogo onde você deve utilizar as setas "<-" e "->" para se mover pela tela e desviar dos polígonos que estão caindo. No final do jogo, é exibido pelo terminal quantos polígonos você conseguiu desviar!
